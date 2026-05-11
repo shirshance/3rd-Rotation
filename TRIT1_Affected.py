@@ -1,12 +1,12 @@
 from Bio import SeqIO
 import matplotlib.pyplot as plt
 
-target_gene = "COX1"
+target_gene = "CYTB"
 
 # Amino acid codons in DNA version
 aa_codons = {
-    "Serine": ["TCT", "TCC", "TCA", "TCG", "AGT", "AGC"],
-    "Trp": ["TGG"],
+    "Serine": ["TCT", "TCC", "TCA", "TCG"],
+    "Trp": ["TGG","TGA"],
     "Tyr": ["TAT", "TAC"],
     "Phe": ["TTT", "TTC"],
     "Cys": ["TGT", "TGC"]

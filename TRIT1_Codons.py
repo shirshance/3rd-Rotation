@@ -3,7 +3,7 @@ from Bio import SeqIO
 # Codons of interest
 target_codons = [
     "TCT", "TCC", "TCA", "TCG",   # UCU UCC UCA UCG
-    "TGG",                        # UGG
+    "TGG", "TGA",                     # UGG
     "TAT", "TAC",                 # UAU UAC
     "TTT", "TTC",                 # UUU UUC
     "TGT", "TGC"                  # UGU UGC
