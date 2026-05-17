@@ -8,7 +8,7 @@ from Bio import SeqIO
 from Bio import BiopythonWarning
 import warnings
 from datetime import datetime
-from codon_table import CODON_TABLE
+from mt_codon_table import CODON_TABLE
 
 
 class NoNamePeptides:
@@ -41,6 +41,20 @@ def validate_codons(codon):
     if 'U' in codon:
         raise ValueError(f"Error: Codon '{codon}' contains RNA base 'U'. Please provide a DNA codon (A, T, C, G).")
 
+def translate_with_table(seq, table):
+    protein=""
+
+    for i in range(0,len(seq)-2,3):
+        codon=str(seq[i:i+3])
+
+        aa=table.get(codon,'X')
+
+        if aa=='_':
+            break
+
+        protein += aa
+
+    return protein
 
 def translate_shift(seq, description, cod, upstream, length, site, direction, stop_aa, table, trim):
     shifted = {}
@@ -67,32 +81,32 @@ def translate_shift(seq, description, cod, upstream, length, site, direction, st
             if site == 'emptyA':
                 protein_in = protein[:-1]
                 if direction == 'M1':
-                    protein_out = str(seq[i - 1:].translate())
+                    protein_out = translate_with_table(seq[i-1:], table)
                 elif direction == 'P1':
-                    protein_out = str(seq[i + 1:].translate())
+                    protein_out = translate_with_table(seq[i+1:], table)
                 elif direction == 'M2':
-                    protein_out = str(seq[i - 2:].translate())
+                    protein_out = translate_with_table(seq[i-2:], table)
 
             elif site == 'Asite':
                 protein_in = protein
                 if direction == 'M1':
-                    protein_out = str(seq[i + 3 - 1:].translate())
+                    protein_out = translate_with_table(seq[i + 3 - 1:], table)
                 elif direction == 'P1':
-                    protein_out = str(seq[i + 3 + 1:].translate())
+                    protein_out = translate_with_table(seq[i + 3 + 1:], table)
                 elif direction == 'M2':
-                    protein_out = str(seq[i + 3 - 2:].translate())
+                    protein_out = translate_with_table(seq[i + 3 - 2:], table)
 
             elif site == 'Psite':
-                next_aa = str(seq[i + 3:i + 6].translate())
-                if next_aa == '*':  # The next codon can be a stop codon
+                next_aa = translate_with_table(seq[i + 3:i + 6], table)
+                if next_aa == '':  # The next codon can be a stop codon
                     continue
                 protein_in = protein + next_aa
                 if direction == 'M1':
-                    protein_out = str(seq[i + 6 - 1:].translate())
+                    protein_out = translate_with_table(seq[i + 6 - 1:], table)
                 elif direction == 'P1':
-                    protein_out = str(seq[i + 6 + 1:].translate())
+                    protein_out = translate_with_table(seq[i + 6 + 1:], table)
                 elif direction == 'M2':
-                    protein_out = str(seq[i + 6 - 2:].translate())
+                    protein_out = translate_with_table(seq[i + 6 - 2:], table)
 
             if len(protein_in) > int(upstream):
                 protein_in = protein_in[-int(upstream):]
