@@ -1,7 +1,7 @@
 from Bio import SeqIO
 import matplotlib.pyplot as plt
 
-target_gene = "CYTB"
+target_gene = "ND5"
 
 # Amino acid codons in DNA version
 aa_codons = {
