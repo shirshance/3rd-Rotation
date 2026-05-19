@@ -146,7 +146,7 @@ def translate_shift(seq, description, cod, upstream, length, site, direction, st
 
 
 def split_at_target_aa(protein_out, cod, trim):
-    target_aa = tables.get(cod)
+    target_aa = table.get(cod)
     if not target_aa:
         return protein_out
     idx = protein_out.find(target_aa)
