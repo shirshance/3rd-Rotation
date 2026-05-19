@@ -41,6 +41,8 @@ def validate_codons(codon):
     if 'U' in codon:
         raise ValueError(f"Error: Codon '{codon}' contains RNA base 'U'. Please provide a DNA codon (A, T, C, G).")
 
+
+
 def translate_with_table(seq, table):
     protein=""
 
@@ -56,84 +58,105 @@ def translate_with_table(seq, table):
 
     return protein
 
+
 def translate_shift(seq, description, cod, upstream, length, site, direction, stop_aa, table, trim):
     shifted = {}
     protein = ''
     count = 0
 
+    # iterate codons
     for i in range(0, len(seq) - (len(seq) % 3), 3):
-        codon = seq[i:i + 3]
-        aa = table.get(codon, '_')  # Use default '_' if codon is not found in the table
+        codon_seq = seq[i:i + 3]
+        codon_str = str(codon_seq).upper()
+        aa = table.get(codon_str, '_')
         protein += aa
 
-        # Debug: Track the sequence and amino acid translation
-        print(f"Codon: {codon} -> Amino acid: {aa}")
-
-        if aa == '_':  # Stop codon handling
-            print(f"Stop codon encountered at position {i}. Ending protein translation.")
+        # stop encountered
+        if aa == '_':
             break
 
-        if codon == cod:  # Frameshift happens here
+        # frameshift at target codon
+        if codon_str == cod:
             count += 1
-            print(f"Frameshift at position {i} with codon {codon} (Count: {count})")
 
             protein_in, protein_out = '', ''
             if site == 'emptyA':
                 protein_in = protein[:-1]
                 if direction == 'M1':
-                    protein_out = translate_with_table(seq[i-1:], table)
+                    start = max(0, i - 1)
                 elif direction == 'P1':
-                    protein_out = translate_with_table(seq[i+1:], table)
+                    start = i + 1
                 elif direction == 'M2':
-                    protein_out = translate_with_table(seq[i-2:], table)
+                    start = max(0, i - 2)
+                protein_out = translate_with_table(seq[start:], table)
 
             elif site == 'Asite':
                 protein_in = protein
                 if direction == 'M1':
-                    protein_out = translate_with_table(seq[i + 3 - 1:], table)
+                    start = max(0, i + 3 - 1)
                 elif direction == 'P1':
-                    protein_out = translate_with_table(seq[i + 3 + 1:], table)
+                    start = i + 3 + 1
                 elif direction == 'M2':
-                    protein_out = translate_with_table(seq[i + 3 - 2:], table)
+                    start = max(0, i + 3 - 2)
+                protein_out = translate_with_table(seq[start:], table)
 
             elif site == 'Psite':
-                next_aa = translate_with_table(seq[i + 3:i + 6], table)
-                if next_aa == '':  # The next codon can be a stop codon
+                next_seq = seq[i + 3:i + 6]
+                next_aa = translate_with_table(next_seq, table)
+                if next_aa == '_':
                     continue
                 protein_in = protein + next_aa
                 if direction == 'M1':
-                    protein_out = translate_with_table(seq[i + 6 - 1:], table)
+                    start = max(0, i + 6 - 1)
                 elif direction == 'P1':
-                    protein_out = translate_with_table(seq[i + 6 + 1:], table)
+                    start = i + 6 + 1
                 elif direction == 'M2':
-                    protein_out = translate_with_table(seq[i + 6 - 2:], table)
+                    start = max(0, i + 6 - 2)
+                protein_out = translate_with_table(seq[start:], table)
 
+            # limit upstream in-frame length
             if len(protein_in) > int(upstream):
                 protein_in = protein_in[-int(upstream):]
 
-            protein_out = protein_out.split('*')[0]
+            # trim out-of-frame at first stop
+            protein_out = protein_out.split('_')[0]
 
+            # if requested, split at target amino acid
             if stop_aa:
-                protein_out = split_at_target_aa(protein_out, cod, aa, trim)
+                protein_out = split_at_target_aa(protein_out, cod, trim)
 
-            # Debug: Show the protein_in and protein_out before writing
-            print(f"Protein in: {protein_in}")
-            print(f"Protein out: {protein_out}")
+            # legacy "chimeras" behavior: single chimeric fragment truncated to upstream AAs
+            if length == 'chimeras':
+                protein_out = protein_out[:int(upstream)]
 
-            identification_minus = f">{direction}_{site}_count{count}_{CODON_TABLE[cod]}{str(int(i / 3) + 1)}_" \
-                                   f"{description.split(' ')[0]}_{protein_out[:14]}_{str(seq[i - 4:i + 6])}"
+            if protein_out == '':
+                continue
+
+            if length == 'chimeras':
+                identification_minus = '>' + direction + '_' + site + '_count' + str(count) + '_' + CODON_TABLE.get(cod, '?') + \
+                                       str(int(i / 3) + 1) + '_' + description + '_' + protein_out + '_' + str(seq[i - 4:i + 6])
+            else:
+                identification_minus = '>' + direction + '_' + site + '_count' + str(count) + '_' + CODON_TABLE.get(cod, '?') + \
+                                       str(int(i / 3) + 1) + '_' + description + '_' + protein_in[-14:] + '_' + \
+                                       protein_out[:14] + '_' + str(seq[i - 4:i + 6])
 
             shifted[identification_minus] = protein_in + protein_out
 
     return shifted
 
 
-def split_at_target_aa(protein_out, cod, aa, trim):
-    target_aa = CODON_TABLE[cod]
-    protein_out = protein_out.split(target_aa)[0]
+def split_at_target_aa(protein_out, cod, trim):
+    target_aa = tables.get(cod)
+    if not target_aa:
+        return protein_out
+    idx = protein_out.find(target_aa)
+    if idx == -1:
+        return protein_out
+    # if trim requested, return sequence after the found target aa
     if trim:
-        protein_out = protein_out[:protein_out.find(target_aa)+1]
-    return protein_out
+        return protein_out[idx + 1:]
+    else:
+        return protein_out[:idx]
 
 
 def read_cds(fasta, cod, upstream, length, site, direction, stop_aa, gene_list, table, path_writing, trim):
